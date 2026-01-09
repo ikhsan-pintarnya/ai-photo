@@ -35,11 +35,9 @@ export const Layout: React.FC<LayoutProps> = ({ children, step, onNavigate, hasP
       <header className="w-full max-w-6xl p-6 flex justify-between items-center border-b border-slate-200 bg-white shadow-sm sticky top-0 z-10">
         <div className="flex items-center gap-6">
           <button onClick={() => onNavigate(AppStep.UPLOAD)} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white shadow-sm transform -rotate-3 hover:rotate-0 transition-transform duration-300">
-              <Book size={20} strokeWidth={2.5} />
-            </div>
+            <img src="./assets/pintarnya-logo.png" alt="Pintarnya" className="w-10 h-10 object-contain" />
             <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-              Professional<span className="text-blue-600"> CV Photo</span>
+              <span className="text-blue-600">AI Photo</span> Studio
             </h1>
           </button>
 
