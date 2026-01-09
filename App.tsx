@@ -192,7 +192,18 @@ const App: React.FC = () => {
   }
 
   return (
-    <Layout step={step} onNavigate={setStep} hasProjects={savedProjects.length > 0}>
+    <Layout
+      step={step}
+      onNavigate={setStep}
+      hasProjects={savedProjects.length > 0}
+      apiKey={apiKey}
+      onSetApiKey={(key) => {
+        if (key) {
+          setApiKey(key);
+          localStorage.setItem('gemini_api_key', key);
+        }
+      }}
+    >
       {step === AppStep.UPLOAD && <UploadStep onImageUpload={handleImageUpload} onShowLibrary={() => setStep(AppStep.LIBRARY)} hasProjects={savedProjects.length > 0} />}
       {step === AppStep.FEATURES && <StepWizard features={features} updateFeatures={updateFeatures} onNext={handleGeneration} uploadedImagePreview={uploadedImage} />}
       {step === AppStep.GENERATION && (
