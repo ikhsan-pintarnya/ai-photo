@@ -78,6 +78,23 @@ const App: React.FC = () => {
       const seed = Math.floor(Math.random() * 10000);
       const img = await generateHeadshot(apiKey, uploadedImage.base64, uploadedImage.mimeType, features, seed);
       setGeneratedImages([img]);
+
+      // Auto-save logic
+      const newProject: SavedProject = {
+        id: Date.now().toString(),
+        name: `Project ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+        timestamp: Date.now(),
+        sourceImage: uploadedImage,
+        features: features,
+        generatedImages: [img] // Start with the first generated image
+      };
+
+      setSavedProjects(prev => {
+        const updated = [newProject, ...prev];
+        localStorage.setItem('pintarnya_projects', JSON.stringify(updated));
+        return updated;
+      });
+
     } catch (err: any) {
       console.error("Critical error in generation:", err);
       setError(err?.message || "An unexpected error occurred during generation.");
