@@ -148,7 +148,7 @@ const App: React.FC = () => {
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 font-sans">
         <div className="bg-white max-w-md w-full rounded-3xl p-8 shadow-2xl animate-fade-in">
           <div className="flex items-center gap-3 mb-6">
-            <img src="./assets/pintarnya-logo.png" alt="Pintarnya" className="w-12 h-12 object-contain" />
+            <img src="./pintarnya-logo.png" alt="Pintarnya" className="w-12 h-12 object-contain" />
             <h1 className="text-2xl font-bold text-slate-900">AI Photo Studio</h1>
           </div>
 
