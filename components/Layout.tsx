@@ -20,11 +20,17 @@ const steps = [
 
 export const Layout: React.FC<LayoutProps> = ({ children, step, onNavigate, hasProjects, apiKey, onSetApiKey }) => {
   const [showKeyModal, setShowKeyModal] = useState(false);
-  const [tempKey, setTempKey] = useState(apiKey || '');
+  const [tempKey, setTempKey] = useState('');
+
+  // Sync tempKey with apiKey prop when modal opens
+  const openKeyModal = () => {
+    setTempKey(apiKey || '');
+    setShowKeyModal(true);
+  };
 
   const handleSaveKey = () => {
-    if (onSetApiKey) {
-      onSetApiKey(tempKey);
+    if (onSetApiKey && tempKey.trim()) {
+      onSetApiKey(tempKey.trim());
       setShowKeyModal(false);
     }
   };
@@ -92,7 +98,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, step, onNavigate, hasP
           {/* API Key Trigger */}
           {onSetApiKey && (
             <button
-              onClick={() => { setTempKey(apiKey || ''); setShowKeyModal(true); }}
+              onClick={openKeyModal}
               className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
               title="Manage API Key"
             >
