@@ -18,7 +18,7 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3, initialDelay =
     } catch (error: any) {
       lastError = error;
       const isRateLimit = error?.message?.includes('429') || error?.status === 429 || error?.message?.includes('RESOURCE_EXHAUSTED');
-      
+
       if (isRateLimit && i < maxRetries - 1) {
         const waitTime = initialDelay * Math.pow(2, i);
         console.warn(`Rate limit hit. Retrying in ${waitTime}ms... (Attempt ${i + 1}/${maxRetries})`);
@@ -69,13 +69,20 @@ No hallucinations, no identity drift, no AI smoothing, no stylization.`;
  */
 export const generateHeadshot = async (
   apiKey: string,
-  baseImageBase64: string, 
-  baseImageMimeType: string, 
+  baseImageBase64: string,
+  baseImageMimeType: string,
   features: HeadshotFeatures,
   seed?: number
 ): Promise<GeneratedImage> => {
+  // Debug: Log whether API key is present (masked for security)
+  console.log('[generateHeadshot] API Key present:', !!apiKey, apiKey ? `(starts with ${apiKey.substring(0, 8)}...)` : '(empty)');
+
+  if (!apiKey || !apiKey.trim()) {
+    throw new Error('API key is missing. Please configure your Gemini API key in the settings.');
+  }
+
   const ai = new GoogleGenAI({ apiKey });
-  
+
   // Semantic Intent (Persona, Mood, Environment)
   const semantic = `
     - Persona: ${features.vibe} professional with a ${features.expression} expression.
@@ -93,7 +100,7 @@ export const generateHeadshot = async (
   `.trim();
 
   const fullPrompt = getWrappedPrompt(semantic, technical);
-  
+
   return withRetry(async () => {
     const response = await ai.models.generateContent({
       model: NANO_BANANA_MODEL,
@@ -120,19 +127,19 @@ export const generateHeadshot = async (
     });
 
     if (!response.candidates || response.candidates.length === 0) {
-        throw new Error("No candidates returned.");
+      throw new Error("No candidates returned.");
     }
 
     const imagePart = response.candidates[0].content?.parts.find(p => p.inlineData);
 
     if (!imagePart || !imagePart.inlineData) {
-        throw new Error("No image data found.");
+      throw new Error("No image data found.");
     }
 
     return {
       id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
       base64: imagePart.inlineData.data,
-      promptUsed: fullPrompt, 
+      promptUsed: fullPrompt,
       mimeType: imagePart.inlineData.mimeType || 'image/png'
     };
   });
@@ -143,11 +150,11 @@ export const generateHeadshot = async (
  */
 export const editHeadshot = async (
   apiKey: string,
-  originalImage: GeneratedImage, 
+  originalImage: GeneratedImage,
   instruction: string
 ): Promise<GeneratedImage> => {
   const ai = new GoogleGenAI({ apiKey });
-  
+
   const fullEditPrompt = `RETOUCHING LAYER: ${instruction}. 
 
 CRITICAL CONSTRAINTS: 
@@ -185,7 +192,7 @@ CRITICAL CONSTRAINTS:
     return {
       id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
       base64: imagePart.inlineData.data,
-      promptUsed: fullEditPrompt, 
+      promptUsed: fullEditPrompt,
       mimeType: imagePart.inlineData.mimeType || 'image/png'
     };
   });
