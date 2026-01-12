@@ -90,8 +90,19 @@ const App: React.FC = () => {
       };
 
       setSavedProjects(prev => {
-        const updated = [newProject, ...prev];
-        localStorage.setItem('pintarnya_projects', JSON.stringify(updated));
+        // Limit to 5 most recent projects to prevent localStorage quota issues
+        const updated = [newProject, ...prev].slice(0, 5);
+        try {
+          localStorage.setItem('pintarnya_projects', JSON.stringify(updated));
+        } catch (storageError) {
+          console.warn('Could not save to localStorage (quota exceeded). Clearing old projects.');
+          // If quota exceeded, try saving just the new project
+          try {
+            localStorage.setItem('pintarnya_projects', JSON.stringify([newProject]));
+          } catch (e) {
+            console.error('Storage completely full. Projects will not persist.');
+          }
+        }
         return updated;
       });
 
@@ -113,10 +124,15 @@ const App: React.FC = () => {
       features: features,
       generatedImages: generatedImages
     };
-    const updated = [newProject, ...savedProjects];
+    const updated = [newProject, ...savedProjects].slice(0, 5);
     setSavedProjects(updated);
-    localStorage.setItem('pintarnya_projects', JSON.stringify(updated));
-    alert("Project saved to your local library!");
+    try {
+      localStorage.setItem('pintarnya_projects', JSON.stringify(updated));
+      alert("Project saved to your local library!");
+    } catch (e) {
+      console.error('Storage quota exceeded');
+      alert("Could not save project - browser storage is full. Try clearing some old projects.");
+    }
   };
 
   const handleLoadProject = (project: SavedProject) => {
