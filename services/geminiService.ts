@@ -85,7 +85,7 @@ export const generateHeadshot = async (
 
   // Semantic Intent (Persona, Mood, Environment)
   const semantic = `
-    - Persona: ${features.vibe} professional with a ${features.expression} expression.
+    - Persona: Professional with a ${features.expression} expression.
     - Environment: ${features.background}.
     - Attire: ${features.attire}.
     - Presentation: ${features.grooming}.
@@ -101,21 +101,34 @@ export const generateHeadshot = async (
 
   const fullPrompt = getWrappedPrompt(semantic, technical);
 
+  const parts: any[] = [
+    {
+      inlineData: {
+        mimeType: baseImageMimeType,
+        data: baseImageBase64
+      }
+    },
+    {
+      text: fullPrompt
+    }
+  ];
+
+  if (features.attireImage && features.attireImageMimeType) {
+    parts.splice(1, 0, {
+      inlineData: {
+        mimeType: features.attireImageMimeType,
+        data: features.attireImage
+      }
+    });
+    // Append instruction to use the reference
+    parts[parts.length - 1].text += "\n\nCRITICAL: Use the second image provided as the strict reference for the subject's ATTIRE settings. Apply the clothing from the reference image to the subject.";
+  }
+
   return withRetry(async () => {
     const response = await ai.models.generateContent({
       model: NANO_BANANA_MODEL,
       contents: {
-        parts: [
-          {
-            inlineData: {
-              mimeType: baseImageMimeType,
-              data: baseImageBase64
-            }
-          },
-          {
-            text: fullPrompt
-          }
-        ]
+        parts: parts
       },
       config: {
         imageConfig: {

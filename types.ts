@@ -8,15 +8,17 @@ export enum AppStep {
 }
 
 export interface HeadshotFeatures {
-  vibe: string;          
-  pose: string;          
-  attire: string;    
+  // vibe property removed
+  pose: string;
+  attire: string;
+  attireImage?: string; // Base64 of custom attire
+  attireImageMimeType?: string;
   background: string;
-  grooming: string;      
-  expression: string;    
-  cameraAngle: string;   
-  lensDepth: string;     
-  colorGrade: string;    
+  grooming: string;
+  expression: string;
+  cameraAngle: string;
+  lensDepth: string;
+  colorGrade: string;
 }
 
 export interface GeneratedImage {

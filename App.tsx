@@ -10,7 +10,6 @@ import { generateHeadshot } from './services/geminiService';
 import { Key, Lock, Sparkles, ArrowRight } from 'lucide-react';
 
 const INITIAL_FEATURES: HeadshotFeatures = {
-  vibe: 'Corporate',
   pose: '3/4 Profile',
   attire: 'Navy Blue Executive Suit, white shirt, silk tie',
   background: 'Modern tech office with soft daylight bokeh',
@@ -63,7 +62,7 @@ const App: React.FC = () => {
     setStep(AppStep.FEATURES);
   };
 
-  const updateFeatures = (key: keyof HeadshotFeatures, value: string) => {
+  const updateFeatures = (key: keyof HeadshotFeatures, value: any) => {
     setFeatures(prev => ({ ...prev, [key]: value }));
   };
 
