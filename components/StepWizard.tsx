@@ -67,7 +67,12 @@ export const StepWizard: React.FC<WizardProps> = ({ features, updateFeatures, on
                         <div className="space-y-4">
                             <div className="flex justify-between items-center border-b border-slate-50 pb-2">
                                 <span className="text-xs text-slate-500 font-bold">Location</span>
-                                <span className="text-xs text-slate-900 font-black truncate max-w-[150px]">{BG_OPTIONS.find(b => b.id === features.background)?.title || 'Custom'}</span>
+                                <span className="text-xs text-slate-900 font-black truncate max-w-[150px]">
+                                    {BG_OPTIONS.find(b => b.id === features.background)?.title ||
+                                        (features.background.startsWith('Solid background with hex color')
+                                            ? `Custom (${features.background.split(' ').pop()})`
+                                            : 'Custom')}
+                                </span>
                             </div>
                             <div className="flex flex-col border-b border-slate-50 pb-2">
                                 <span className="text-xs text-slate-500 font-bold mb-1">Detailed Attire</span>
@@ -179,6 +184,40 @@ export const StepWizard: React.FC<WizardProps> = ({ features, updateFeatures, on
                                     </div>
                                 </button>
                             ))}
+                            {/* Custom Color Picker Button */}
+                            <div className="relative h-20 overflow-hidden rounded-xl border-2 border-slate-100 hover:border-slate-300 transition-all">
+                                <label className="cursor-pointer w-full h-full block">
+                                    <input
+                                        type="color"
+                                        className="w-full h-full absolute inset-0 opacity-0 cursor-pointer"
+                                        onChange={(e) => {
+                                            const color = e.target.value;
+                                            updateFeatures('background', `Solid background with hex color ${color}`);
+                                        }}
+                                    />
+                                    <div
+                                        className="w-full h-full flex items-center justify-center"
+                                        style={{
+                                            backgroundColor: features.background.startsWith('Solid background with hex color')
+                                                ? features.background.split(' ').pop()
+                                                : '#e2e8f0'
+                                        }}
+                                    >
+                                        <span className={`text-[10px] font-black uppercase tracking-wider z-10 
+                                            ${features.background.startsWith('Solid background with hex color') ? 'text-white drop-shadow-md' : 'text-slate-500'}`}>
+                                            Custom Color
+                                        </span>
+                                        {/* Overlay to darken slightly for text readability if needed, or just let the user pick */}
+                                        {features.background.startsWith('Solid background with hex color') && (
+                                            <div className="absolute inset-0 bg-slate-900/10 pointer-events-none" />
+                                        )}
+                                    </div>
+                                    {/* Active State Indicator for Custom Color */}
+                                    {features.background.startsWith('Solid background with hex color') && (
+                                        <div className="absolute inset-0 border-4 border-indigo-600 rounded-xl pointer-events-none" />
+                                    )}
+                                </label>
+                            </div>
                         </div>
                     </div>
 
