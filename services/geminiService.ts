@@ -74,14 +74,12 @@ export const generateHeadshot = async (
   features: HeadshotFeatures,
   seed?: number
 ): Promise<GeneratedImage> => {
-  // Debug: Log whether API key is present (masked for security)
-  console.log('[generateHeadshot] API Key present:', !!apiKey, apiKey ? `(starts with ${apiKey.substring(0, 8)}...)` : '(empty)');
+  // Debug logic
+  const isOAuth = apiKey.startsWith('ya29') || apiKey.length > 150; // Simple heuristic for OAuth token vs API Key
 
   if (!apiKey || !apiKey.trim()) {
-    throw new Error('API key is missing. Please configure your Gemini API key in the settings.');
+    throw new Error('API key or Access Token is missing.');
   }
-
-  const ai = new GoogleGenAI({ apiKey });
 
   // Semantic Intent (Persona, Mood, Environment)
   const semantic = `
@@ -125,36 +123,82 @@ export const generateHeadshot = async (
   }
 
   return withRetry(async () => {
-    const response = await ai.models.generateContent({
-      model: NANO_BANANA_MODEL,
-      contents: {
-        parts: parts
-      },
-      config: {
-        imageConfig: {
-          aspectRatio: "1:1",
+    if (isOAuth) {
+      // Use REST API with OAuth Token
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${NANO_BANANA_MODEL}:generateContent`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
         },
-        temperature: 0.8,
-        seed: seed,
+        body: JSON.stringify({
+          contents: [{ parts: parts }],
+          generationConfig: {
+            temperature: 0.8,
+            seed: seed,
+            // imageConfig is not supported in all REST versions, check docs if needed. 
+            // For flash-image, it might just return an image.
+          }
+        })
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Gemini API Error: ${response.status} - ${errText}`);
       }
-    });
 
-    if (!response.candidates || response.candidates.length === 0) {
-      throw new Error("No candidates returned.");
+      const data = await response.json();
+
+      if (!data.candidates || data.candidates.length === 0) {
+        throw new Error("No candidates returned from API.");
+      }
+
+      const imagePart = data.candidates[0].content?.parts.find((p: any) => p.inlineData);
+      if (!imagePart || !imagePart.inlineData) {
+        throw new Error("No image data found in response.");
+      }
+
+      return {
+        id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
+        base64: imagePart.inlineData.data,
+        promptUsed: fullPrompt,
+        mimeType: imagePart.inlineData.mimeType || 'image/png'
+      };
+
+    } else {
+      // Use SDK for API Key
+      const ai = new GoogleGenAI({ apiKey });
+      const response = await ai.models.generateContent({
+        model: NANO_BANANA_MODEL,
+        contents: {
+          parts: parts
+        },
+        config: {
+          imageConfig: {
+            aspectRatio: "1:1",
+          },
+          temperature: 0.8,
+          seed: seed,
+        }
+      });
+
+      if (!response.candidates || response.candidates.length === 0) {
+        throw new Error("No candidates returned.");
+      }
+
+      const imagePart = response.candidates[0].content?.parts.find(p => p.inlineData);
+
+      if (!imagePart || !imagePart.inlineData) {
+        throw new Error("No image data found.");
+      }
+
+      return {
+        id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
+        base64: imagePart.inlineData.data,
+        promptUsed: fullPrompt,
+        mimeType: imagePart.inlineData.mimeType || 'image/png'
+      };
     }
-
-    const imagePart = response.candidates[0].content?.parts.find(p => p.inlineData);
-
-    if (!imagePart || !imagePart.inlineData) {
-      throw new Error("No image data found.");
-    }
-
-    return {
-      id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
-      base64: imagePart.inlineData.data,
-      promptUsed: fullPrompt,
-      mimeType: imagePart.inlineData.mimeType || 'image/png'
-    };
   });
 };
 
