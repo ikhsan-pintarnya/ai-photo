@@ -37,4 +37,4 @@ export interface SavedProject {
   generatedImages: GeneratedImage[];
 }
 
-export const NANO_BANANA_MODEL = 'gemini-2.5-pro';
+export const NANO_BANANA_MODEL = 'gemini-3.0-flash';
