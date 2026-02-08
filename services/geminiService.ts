@@ -134,10 +134,9 @@ export const generateHeadshot = async (
         body: JSON.stringify({
           contents: [{ parts: parts }],
           generationConfig: {
+            responseModalities: ["TEXT", "IMAGE"],
             temperature: 0.8,
             seed: seed,
-            // imageConfig is not supported in all REST versions, check docs if needed. 
-            // For flash-image, it might just return an image.
           }
         })
       });
@@ -174,6 +173,7 @@ export const generateHeadshot = async (
           parts: parts
         },
         config: {
+          responseModalities: ["TEXT", "IMAGE"],
           temperature: 0.8,
           seed: seed,
         }
@@ -207,7 +207,7 @@ export const editHeadshot = async (
   originalImage: GeneratedImage,
   instruction: string
 ): Promise<GeneratedImage> => {
-  const ai = new GoogleGenAI({ apiKey });
+  const isOAuth = apiKey.startsWith('ya29') || apiKey.length > 150;
 
   const fullEditPrompt = `RETOUCHING LAYER: ${instruction}. 
 
@@ -216,35 +216,74 @@ CRITICAL CONSTRAINTS:
 - Preserve existing studio lighting and camera optics.
 - Apply ONLY the requested delta change.`;
 
-  return withRetry(async () => {
-    const response = await ai.models.generateContent({
-      model: NANO_BANANA_MODEL,
-      contents: {
-        parts: [
-          {
-            inlineData: {
-              mimeType: originalImage.mimeType,
-              data: originalImage.base64
-            }
-          },
-          {
-            text: fullEditPrompt
-          }
-        ]
-      },
-      config: {
-        temperature: 0.4
+  const editParts: any[] = [
+    {
+      inlineData: {
+        mimeType: originalImage.mimeType,
+        data: originalImage.base64
       }
-    });
+    },
+    {
+      text: fullEditPrompt
+    }
+  ];
 
-    const imagePart = response.candidates?.[0].content?.parts.find(p => p.inlineData);
-    if (!imagePart || !imagePart.inlineData) throw new Error("Edit failed.");
+  return withRetry(async () => {
+    if (isOAuth) {
+      // Use REST API with OAuth Token
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${NANO_BANANA_MODEL}:generateContent`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          contents: [{ parts: editParts }],
+          generationConfig: {
+            responseModalities: ["TEXT", "IMAGE"],
+            temperature: 0.4,
+          }
+        })
+      });
 
-    return {
-      id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
-      base64: imagePart.inlineData.data,
-      promptUsed: fullEditPrompt,
-      mimeType: imagePart.inlineData.mimeType || 'image/png'
-    };
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Gemini API Error: ${response.status} - ${errText}`);
+      }
+
+      const data = await response.json();
+      const imagePart = data.candidates?.[0]?.content?.parts.find((p: any) => p.inlineData);
+      if (!imagePart || !imagePart.inlineData) throw new Error("Edit failed.");
+
+      return {
+        id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
+        base64: imagePart.inlineData.data,
+        promptUsed: fullEditPrompt,
+        mimeType: imagePart.inlineData.mimeType || 'image/png'
+      };
+    } else {
+      // Use SDK for API Key
+      const ai = new GoogleGenAI({ apiKey });
+      const response = await ai.models.generateContent({
+        model: NANO_BANANA_MODEL,
+        contents: {
+          parts: editParts
+        },
+        config: {
+          responseModalities: ["TEXT", "IMAGE"],
+          temperature: 0.4
+        }
+      });
+
+      const imagePart = response.candidates?.[0].content?.parts.find(p => p.inlineData);
+      if (!imagePart || !imagePart.inlineData) throw new Error("Edit failed.");
+
+      return {
+        id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
+        base64: imagePart.inlineData.data,
+        promptUsed: fullEditPrompt,
+        mimeType: imagePart.inlineData.mimeType || 'image/png'
+      };
+    }
   });
 };

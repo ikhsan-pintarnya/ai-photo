@@ -38,28 +38,13 @@ export const FreeStudio: React.FC = () => {
         setUsageCount(count);
     }, []);
 
-    const login = useGoogleLogin({
-        onSuccess: (tokenResponse) => {
-            setToken(tokenResponse.access_token);
-        },
-        scope: 'https://www.googleapis.com/auth/generative-language.retriever https://www.googleapis.com/auth/generative-language.tuning',
-        // Note: Standard scope for Gemini might be just "https://www.googleapis.com/auth/cloud-platform" or specific genai ones if available. 
-        // 'https://www.googleapis.com/auth/generative-language.retriever' is often used for RAG but might suffice or be related.
-        // Ideally we need "https://www.googleapis.com/auth/generative-language".
-        // Let's try to add the generic one.
-    });
-
-    // Correction: The correct scope for generating content via API is simpler if using API Key, 
-    // but for OAuth it is `https://www.googleapis.com/auth/generative-language.retriever` (read-only) or similar.
-    // Actually, `https://www.googleapis.com/auth/generative-language` is the broad one.
-
     const handleGoogleLogin = useGoogleLogin({
         onSuccess: (res) => {
             console.log("Logged in", res);
             setToken(res.access_token);
         },
         onError: (err) => console.error("Login Failed", err),
-        scope: "https://www.googleapis.com/auth/generative-language.retriever" // This might need adjustment based on exact API requirements for 'generateContent'
+        scope: "https://www.googleapis.com/auth/generative-language"
     });
 
     const handleImageUpload = (base64: string, mimeType: string) => {
