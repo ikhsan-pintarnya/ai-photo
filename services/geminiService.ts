@@ -174,9 +174,6 @@ export const generateHeadshot = async (
           parts: parts
         },
         config: {
-          imageConfig: {
-            aspectRatio: "1:1",
-          },
           temperature: 0.8,
           seed: seed,
         }
@@ -236,9 +233,6 @@ CRITICAL CONSTRAINTS:
         ]
       },
       config: {
-        imageConfig: {
-          aspectRatio: "1:1"
-        },
         temperature: 0.4
       }
     });
