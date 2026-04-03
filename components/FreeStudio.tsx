@@ -7,6 +7,7 @@ import { Gallery } from './Gallery';
 import { Editor } from './Editor';
 import { AppStep, HeadshotFeatures, GeneratedImage, SavedProject } from '../types';
 import { generateHeadshot } from '../services/geminiService';
+import { getUsageCount, incrementUsage } from '../services/usageService';
 import { Sparkles, ArrowRight, Lock } from 'lucide-react';
 
 const INITIAL_FEATURES: HeadshotFeatures = {
@@ -34,8 +35,7 @@ export const FreeStudio: React.FC = () => {
     const [usageCount, setUsageCount] = useState(0);
 
     useEffect(() => {
-        const count = parseInt(localStorage.getItem('free_usage_count') || '0', 10);
-        setUsageCount(count);
+        getUsageCount().then(setUsageCount).catch(() => setUsageCount(0));
     }, []);
 
     const handleGoogleLogin = useGoogleLogin({
@@ -76,10 +76,9 @@ export const FreeStudio: React.FC = () => {
             const img = await generateHeadshot(token, uploadedImage.base64, uploadedImage.mimeType, features, seed);
             setGeneratedImages([img]);
 
-            // Increment Usage
-            const newCount = usageCount + 1;
+            // Increment usage in DB
+            const newCount = await incrementUsage();
             setUsageCount(newCount);
-            localStorage.setItem('free_usage_count', newCount.toString());
 
         } catch (err: any) {
             console.error("Critical error in generation:", err);

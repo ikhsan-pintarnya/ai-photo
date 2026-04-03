@@ -7,7 +7,9 @@ import { Editor } from './Editor';
 import { ProjectsList } from './ProjectsList';
 import { AppStep, HeadshotFeatures, GeneratedImage, SavedProject } from '../types';
 import { generateHeadshot } from '../services/geminiService';
-import { Key, Lock } from 'lucide-react';
+import { fetchProjects, saveProject, deleteProject } from '../services/projectService';
+import { isAuthenticated, verifyPassword } from '../services/authService';
+import { Key, Lock, ShieldCheck } from 'lucide-react';
 
 const INITIAL_FEATURES: HeadshotFeatures = {
     pose: '3/4 Profile',
@@ -21,6 +23,10 @@ const INITIAL_FEATURES: HeadshotFeatures = {
 };
 
 export const Studio: React.FC = () => {
+    const [authed, setAuthed] = useState<boolean>(isAuthenticated());
+    const [passwordInput, setPasswordInput] = useState('');
+    const [passwordError, setPasswordError] = useState('');
+    const [passwordLoading, setPasswordLoading] = useState(false);
     const [apiKey, setApiKey] = useState<string>('');
     const [tempKey, setTempKey] = useState('');
     const [step, setStep] = useState<AppStep>(AppStep.UPLOAD);
@@ -32,22 +38,14 @@ export const Studio: React.FC = () => {
     const [savedProjects, setSavedProjects] = useState<SavedProject[]>([]);
     const [error, setError] = useState<string | null>(null);
 
-    // Load API Key and projects from localStorage on mount
+    // Load API key from localStorage, projects from API
     useEffect(() => {
-        const storedProjects = localStorage.getItem('pintarnya_projects');
         const storedKey = localStorage.getItem('gemini_api_key');
+        if (storedKey) setApiKey(storedKey);
 
-        if (storedKey) {
-            setApiKey(storedKey);
-        }
-
-        if (storedProjects) {
-            try {
-                setSavedProjects(JSON.parse(storedProjects));
-            } catch (e) {
-                console.error("Failed to parse saved projects", e);
-            }
-        }
+        fetchProjects()
+            .then(setSavedProjects)
+            .catch((e) => console.error('Failed to load projects', e));
     }, []);
 
     const handleSaveKey = () => {
@@ -78,32 +76,16 @@ export const Studio: React.FC = () => {
             const img = await generateHeadshot(apiKey, uploadedImage.base64, uploadedImage.mimeType, features, seed);
             setGeneratedImages([img]);
 
-            // Auto-save logic
-            const newProject: SavedProject = {
-                id: Date.now().toString(),
+            // Auto-save to API
+            const projectData = {
                 name: `Project ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
                 timestamp: Date.now(),
                 sourceImage: uploadedImage,
                 features: features,
-                generatedImages: [img] // Start with the first generated image
+                generatedImages: [img],
             };
-
-            setSavedProjects(prev => {
-                // Limit to 5 most recent projects to prevent localStorage quota issues
-                const updated = [newProject, ...prev].slice(0, 5);
-                try {
-                    localStorage.setItem('pintarnya_projects', JSON.stringify(updated));
-                } catch (storageError) {
-                    console.warn('Could not save to localStorage (quota exceeded). Clearing old projects.');
-                    // If quota exceeded, try saving just the new project
-                    try {
-                        localStorage.setItem('pintarnya_projects', JSON.stringify([newProject]));
-                    } catch (e) {
-                        console.error('Storage completely full. Projects will not persist.');
-                    }
-                }
-                return updated;
-            });
+            const saved = await saveProject(projectData);
+            setSavedProjects(prev => [saved, ...prev]);
 
         } catch (err: any) {
             console.error("Critical error in generation:", err);
@@ -113,24 +95,21 @@ export const Studio: React.FC = () => {
         }
     };
 
-    const handleSaveProject = () => {
+    const handleSaveProject = async () => {
         if (!uploadedImage || generatedImages.length === 0) return;
-        const newProject: SavedProject = {
-            id: Date.now().toString(),
-            name: `Project ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
-            timestamp: Date.now(),
-            sourceImage: uploadedImage,
-            features: features,
-            generatedImages: generatedImages
-        };
-        const updated = [newProject, ...savedProjects].slice(0, 5);
-        setSavedProjects(updated);
         try {
-            localStorage.setItem('pintarnya_projects', JSON.stringify(updated));
-            alert("Project saved to your local library!");
+            const saved = await saveProject({
+                name: `Project ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+                timestamp: Date.now(),
+                sourceImage: uploadedImage,
+                features: features,
+                generatedImages: generatedImages,
+            });
+            setSavedProjects(prev => [saved, ...prev]);
+            alert('Project saved to your library!');
         } catch (e) {
-            console.error('Storage quota exceeded');
-            alert("Could not save project - browser storage is full. Try clearing some old projects.");
+            console.error('Failed to save project', e);
+            alert('Could not save project. Please try again.');
         }
     };
 
@@ -142,10 +121,13 @@ export const Studio: React.FC = () => {
         setStep(AppStep.GENERATION);
     };
 
-    const handleDeleteProject = (id: string) => {
-        const updated = savedProjects.filter(p => p.id !== id);
-        setSavedProjects(updated);
-        localStorage.setItem('pintarnya_projects', JSON.stringify(updated));
+    const handleDeleteProject = async (id: string) => {
+        try {
+            await deleteProject(id);
+            setSavedProjects(prev => prev.filter(p => p.id !== id));
+        } catch (e) {
+            console.error('Failed to delete project', e);
+        }
     };
 
     const handleNewProject = () => {
@@ -156,6 +138,67 @@ export const Studio: React.FC = () => {
         setError(null);
         setStep(AppStep.UPLOAD);
     };
+
+    const handlePasswordSubmit = async () => {
+        if (!passwordInput.trim()) return;
+        setPasswordLoading(true);
+        setPasswordError('');
+        const ok = await verifyPassword(passwordInput.trim());
+        setPasswordLoading(false);
+        if (ok) {
+            setAuthed(true);
+        } else {
+            setPasswordError('Incorrect password. Please try again.');
+        }
+    };
+
+    // Password gate
+    if (!authed) {
+        return (
+            <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 font-sans">
+                <div className="bg-white max-w-md w-full rounded-3xl p-8 shadow-2xl animate-fade-in">
+                    <div className="flex items-center gap-3 mb-6">
+                        <img src="./pintarnya-logo.png" alt="Pintarnya" className="w-12 h-12 object-contain" />
+                        <h1 className="text-2xl font-bold text-slate-900">AI Photo Studio</h1>
+                    </div>
+
+                    <div className="mb-6">
+                        <h2 className="text-lg font-bold text-slate-800 mb-2">Access Password</h2>
+                        <p className="text-slate-500 text-sm leading-relaxed">
+                            This tool is invite-only. Enter the access password to continue.
+                        </p>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div className="relative">
+                            <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                            <input
+                                type="password"
+                                value={passwordInput}
+                                onChange={(e) => setPasswordInput(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handlePasswordSubmit()}
+                                placeholder="Enter access password..."
+                                className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl py-3 pl-12 pr-4 text-slate-900 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all font-medium"
+                            />
+                        </div>
+
+                        {passwordError && (
+                            <p className="text-red-500 text-sm font-medium">{passwordError}</p>
+                        )}
+
+                        <button
+                            onClick={handlePasswordSubmit}
+                            disabled={!passwordInput.trim() || passwordLoading}
+                            className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-xl transition-all shadow-xl shadow-blue-600/20 flex items-center justify-center gap-2"
+                        >
+                            <Lock size={18} />
+                            {passwordLoading ? 'Verifying...' : 'Continue'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     // Render API Key Input Screen if no key is found
     if (!apiKey) {
